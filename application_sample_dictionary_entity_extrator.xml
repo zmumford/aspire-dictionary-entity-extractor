@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<application name="SampleDictionaryEntityExtractor">
+  
+  <components>
+    <component name="FeedOne" subType="feedOne" factoryName="aspire-tools">
+      <branches>
+        <branch event="onPublish" pipelineManager="Main" />
+      </branches>
+    </component>
+
+    <component name="Main" subType="pipeline"
+      factoryName="aspire-application">
+      <components>
+
+        <component name="FetchUrl" subType="default" factoryName="aspire-fetch-url" />
+
+        <component name="ExtractText" subType="default" factoryName="aspire-extract-text" />
+
+        <component name="ExtractDomain" subType="default" factoryName="aspire-extract-domain" />
+          
+         <component name="DictionaryEntityExtractor" subType="default" factoryName="aspire-groovy">
+          <config>
+            <script>
+              <![CDATA[
+import groovy.io.FileType
+
+File dictionaryFolder = new File('C:/dev/kickoff/test/dic')
+File inputFile =  new File('C:/dev/kickoff/test/input.txt')
+File outputFile =  new File('C:/dev/kickoff/test/output.txt')
+inputField = 'content'
+outputField = 'extracted-content'
+def dictionaryList = new HashMap()
+def sentence
+def entitySentence
+Boolean match
+Iterator it
+
+inputFile.write(doc.get(inputField)?.text(),'utf-8');
+outputFile.delete();
+
+File inputText =  new File('C:/dev/kickoff/test/input.txt')
+
+if( !dictionaryFolder.exists() ) {
+    println 'Error: Dictionary folder does not exist'
+} 
+else if( !inputText.exists() ) {
+    println 'Error: Input file does not exist'
+} 
+else {
+    dictionaryFolder.eachFileRecurse (FileType.FILES) { dictionary ->
+        dictionaryList.put(dictionary.name, dictionary.readLines())
+    }
+    it = dictionaryList.entrySet().iterator();
+    inputText.eachLine { line ->
+        sentence = line.tokenize()
+        entitySentence = ''
+        sentence.each{ word ->
+            it = dictionaryList.entrySet().iterator();
+            entitySentence += word
+            match = false
+            while(it.hasNext() && !match){
+                Map.Entry dictionary = (Map.Entry)it.next();
+                if(dictionary.getValue().contains(word)){
+                    entitySentence += '{' + dictionary.getKey() + '}'
+                    match = true
+                }
+            }
+            if(!(word == sentence.last())){
+              entitySentence += ' '
+            }
+        }
+        println entitySentence
+        outputFile.append(entitySentence+System.getProperty("line.separator"),'utf-8')
+    }
+}
+outputText = new File('C:/dev/kickoff/test/output.txt').getText('utf-8')
+doc.set(outputField,outputText)
+
+              ]]>
+            </script>
+          </config>
+        </component>
+        <component name="PrintToFile" subType="printToError" factoryName="aspire-tools">
+          <outputFile>log/${app.name}/exampleDebug.out</outputFile>
+        </component>
+          
+      </components>
+      <pipelines>
+        <pipeline name="doc-process" default="true">
+          <stages>
+            <stage component="FetchUrl" />
+            <stage component="ExtractText" />
+            <stage component="ExtractDomain" />
+            <stage component="DictionaryEntityExtractor" />
+          </stages>
+        </pipeline>
+      </pipelines>
+    </component>
+  </components>
+</application>
